@@ -1,0 +1,155 @@
+# General .gitignore
+# Use as a base and combine with language-specific ignores
+
+# ===========================
+# Environment & Secrets
+# ===========================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+secrets/
+credentials/
+*.credentials
+
+# ===========================
+# IDE & Editors
+# ===========================
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains (IntelliJ, PyCharm, WebStorm, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# ===========================
+# Operating System
+# ===========================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.lnk
+Desktop.ini
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ===========================
+# Build & Output
+# ===========================
+build/
+dist/
+out/
+target/
+bin/
+obj/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# ===========================
+# Logs & Temporary
+# ===========================
+logs/
+*.log
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.cache
+
+# ===========================
+# Package Managers
+# ===========================
+# Dependencies are typically not committed
+# Specific ignores in language-specific files
+
+# ===========================
+# Testing & Coverage
+# ===========================
+coverage/
+.coverage
+htmlcov/
+*.lcov
+.nyc_output/
+test-results/
+TestResults/
+
+# ===========================
+# Documentation
+# ===========================
+# Build output for docs
+docs/_build/
+docs/_site/
+site/
+
+# ===========================
+# AI & ML
+# ===========================
+# Model files (often large)
+*.h5
+*.hdf5
+*.pkl
+*.pickle
+*.model
+*.pt
+*.pth
+*.onnx
+# Datasets
+data/
+datasets/
+!data/.gitkeep
+
+# ===========================
+# Misc
+# ===========================
+*.patch
+*.diff
+.project
+.classpath
+.settings/

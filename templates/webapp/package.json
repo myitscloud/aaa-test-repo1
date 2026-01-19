@@ -1,0 +1,16 @@
+{
+  "name": "project-name",
+  "version": "0.1.0",
+  "description": "Project description",
+  "main": "public/js/app.js",
+  "scripts": {
+    "dev": "npx serve public",
+    "test": "echo \"No tests configured\" && exit 0",
+    "lint": "eslint public/js/**/*.js"
+  },
+  "keywords": [],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+  }
+}

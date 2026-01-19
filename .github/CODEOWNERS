@@ -1,0 +1,40 @@
+# CODEOWNERS file
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# These owners will be the default owners for everything in the repo
+* @your-username
+
+# Examples of more specific ownership:
+
+# Frontend code
+# /src/frontend/ @frontend-team
+# /src/components/ @frontend-team
+# *.tsx @frontend-team
+# *.css @frontend-team
+
+# Backend code
+# /src/api/ @backend-team
+# /src/services/ @backend-team
+
+# Infrastructure
+# /infrastructure/ @devops-team
+# /.github/workflows/ @devops-team
+# Dockerfile @devops-team
+# docker-compose*.yml @devops-team
+
+# Documentation
+# /docs/ @docs-team
+# *.md @docs-team
+
+# Security-sensitive files
+# /src/auth/ @security-team
+# /src/security/ @security-team
+# .env.example @security-team
+
+# Database
+# /migrations/ @database-team
+# /src/models/ @database-team
+
+# Configuration
+# /.github/ @maintainers
+# /config/ @maintainers

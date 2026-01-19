@@ -1,0 +1,74 @@
+# PowerShell .gitignore
+
+# Module output
+Output/
+
+# Build artifacts
+*.nupkg
+*.zip
+
+# Test results
+TestResults/
+testResults.xml
+
+# Code coverage
+CodeCoverage/
+coverage.xml
+
+# PSScriptAnalyzer results
+PSScriptAnalyzerResults.xml
+
+# Pester test files
+*.Tests.ps1.bak
+
+# PSake
+.psake.ps1.bak
+
+# PSDepend
+.psdepend/
+
+# Plaster
+.plaster/
+
+# ModuleBuilder
+*.build.ps1.bak
+
+# Documentation
+docs/_site/
+docs/.jekyll-cache/
+
+# Secrets and credentials
+*.cred
+*.credential
+*password*
+*secret*
+!*password*.example
+!*secret*.example
+
+# Local configuration
+*.local.ps1
+config.local.ps1
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Windows specific
+*.lnk

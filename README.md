@@ -167,6 +167,16 @@ Seven-stage deployment process:
 
 ## Getting Started
 
+### One-Line Setup (Debian/Ubuntu)
+
+For a fresh Debian 13 or Ubuntu system, run the interactive setup script:
+
+```bash
+./setup.sh
+```
+
+This will install all dependencies, configure Git/SSH, and set up the project.
+
 ### Prerequisites
 - Git
 - Docker & Docker Compose

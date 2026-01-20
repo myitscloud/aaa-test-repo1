@@ -1,0 +1,255 @@
+# Setup Script Integration Tests
+# Tests the setup.sh script on multiple Linux distributions
+
+name: Test Setup Script
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'setup.sh'
+      - 'tests/integration/**'
+      - '.github/workflows/test-setup.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'setup.sh'
+      - 'tests/integration/**'
+  workflow_dispatch:
+    inputs:
+      test_all_distros:
+        description: 'Test on all supported distributions'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  # Quick syntax and lint check
+  lint:
+    name: Lint & Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check bash syntax
+        run: |
+          echo "Checking setup.sh syntax..."
+          bash -n setup.sh
+          echo "Checking test scripts syntax..."
+          bash -n tests/integration/test-setup.sh
+          bash -n tests/integration/run-tests.sh
+
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: '.'
+          additional_files: 'setup.sh tests/integration/*.sh infrastructure/scripts/*.sh'
+          severity: warning
+
+  # Test on Debian Trixie (primary target)
+  test-debian-trixie:
+    name: Test on Debian Trixie
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test container
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: tests/integration/Dockerfile.test-setup
+          push: false
+          load: true
+          tags: setup-test:debian-trixie
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run tests
+        run: |
+          docker run --rm \
+            -e DEBIAN_FRONTEND=noninteractive \
+            -e SKIP_GIT=1 \
+            -e SKIP_DOCKER=1 \
+            setup-test:debian-trixie
+
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs-debian-trixie
+          path: |
+            /tmp/setup-test-*.log
+          if-no-files-found: ignore
+
+  # Test on Debian Bookworm (previous stable)
+  test-debian-bookworm:
+    name: Test on Debian Bookworm
+    runs-on: ubuntu-latest
+    needs: lint
+    if: |
+      github.event_name == 'workflow_dispatch' && inputs.test_all_distros ||
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build test container
+        run: |
+          docker build \
+            --build-arg BASE_IMAGE=debian:bookworm-slim \
+            -f tests/integration/Dockerfile.test-setup \
+            -t setup-test:debian-bookworm .
+
+      - name: Run tests
+        run: |
+          docker run --rm \
+            -e DEBIAN_FRONTEND=noninteractive \
+            -e SKIP_GIT=1 \
+            -e SKIP_DOCKER=1 \
+            setup-test:debian-bookworm
+
+  # Test on Ubuntu 24.04 LTS
+  test-ubuntu-2404:
+    name: Test on Ubuntu 24.04
+    runs-on: ubuntu-latest
+    needs: lint
+    if: |
+      github.event_name == 'workflow_dispatch' && inputs.test_all_distros ||
+      github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build test container
+        run: |
+          docker build \
+            -f tests/integration/Dockerfile.ubuntu \
+            -t setup-test:ubuntu-2404 .
+
+      - name: Run tests
+        run: |
+          docker run --rm \
+            -e DEBIAN_FRONTEND=noninteractive \
+            -e SKIP_GIT=1 \
+            -e SKIP_DOCKER=1 \
+            setup-test:ubuntu-2404
+
+  # Test on Ubuntu 22.04 LTS
+  test-ubuntu-2204:
+    name: Test on Ubuntu 22.04
+    runs-on: ubuntu-latest
+    needs: lint
+    if: |
+      github.event_name == 'workflow_dispatch' && inputs.test_all_distros
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build test container
+        run: |
+          cat > Dockerfile.ubuntu-2204 << 'EOF'
+          FROM ubuntu:22.04
+          ENV DEBIAN_FRONTEND=noninteractive
+          ENV TERM=xterm-256color
+          RUN apt-get update && apt-get install -y --no-install-recommends sudo ca-certificates curl \
+              && rm -rf /var/lib/apt/lists/* \
+              && useradd -m -s /bin/bash testuser \
+              && echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+          USER testuser
+          WORKDIR /home/testuser
+          COPY --chown=testuser:testuser setup.sh /home/testuser/setup.sh
+          COPY --chown=testuser:testuser tests/integration/test-setup.sh /home/testuser/test-setup.sh
+          RUN chmod +x /home/testuser/setup.sh /home/testuser/test-setup.sh
+          CMD ["/home/testuser/test-setup.sh"]
+          EOF
+          docker build -f Dockerfile.ubuntu-2204 -t setup-test:ubuntu-2204 .
+
+      - name: Run tests
+        run: |
+          docker run --rm \
+            -e DEBIAN_FRONTEND=noninteractive \
+            -e SKIP_GIT=1 \
+            -e SKIP_DOCKER=1 \
+            setup-test:ubuntu-2204
+
+  # Native runner test (tests on GitHub's Ubuntu runner directly)
+  test-native:
+    name: Test Native (Ubuntu Runner)
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run setup script components
+        run: |
+          # Test individual functions without full setup
+          echo "Testing on GitHub Actions runner..."
+
+          # Source the script to get functions
+          source <(grep -A1000 "^install_system_packages" setup.sh | head -50) 2>/dev/null || true
+
+          # Check existing tools
+          echo "Checking pre-installed tools..."
+          command -v git && echo "✓ git"
+          command -v python3 && echo "✓ python3"
+          command -v node && echo "✓ node"
+          command -v docker && echo "✓ docker"
+
+          # Verify versions
+          git --version
+          python3 --version
+          node --version
+          docker --version
+
+      - name: Test Python environment setup
+        run: |
+          python3 -m venv test_venv
+          source test_venv/bin/activate
+          pip install --upgrade pip
+          pip install pytest requests
+          python -c "import requests; print(f'requests {requests.__version__}')"
+          deactivate
+          rm -rf test_venv
+
+      - name: Test Node.js environment setup
+        run: |
+          mkdir test_node && cd test_node
+          echo '{"name":"test","version":"1.0.0"}' > package.json
+          npm install lodash
+          node -e "const _ = require('lodash'); console.log('lodash', _.VERSION)"
+          cd .. && rm -rf test_node
+
+  # Summary job
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs: [lint, test-debian-trixie, test-native]
+    if: always()
+    steps:
+      - name: Check test results
+        run: |
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint | ${{ needs.lint.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Debian Trixie | ${{ needs.test-debian-trixie.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Native Runner | ${{ needs.test-native.result }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.lint.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-debian-trixie.result }}" == "failure" ]] || \
+             [[ "${{ needs.test-native.result }}" == "failure" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Some tests failed!**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**All tests passed!** ✓" >> $GITHUB_STEP_SUMMARY

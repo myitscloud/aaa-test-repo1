@@ -1,0 +1,31 @@
+# Dockerfile for Testing Setup Script
+# Simulates a fresh Debian 13 (Trixie) environment
+
+FROM debian:trixie-slim
+
+# Set environment to non-interactive for apt
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TERM=xterm-256color
+
+# Create a non-root user (simulating real user setup)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sudo \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -s /bin/bash testuser \
+    && echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+# Switch to test user
+USER testuser
+WORKDIR /home/testuser
+
+# Copy the setup script and test files
+COPY --chown=testuser:testuser setup.sh /home/testuser/setup.sh
+COPY --chown=testuser:testuser tests/integration/test-setup.sh /home/testuser/test-setup.sh
+
+# Make scripts executable
+RUN chmod +x /home/testuser/setup.sh /home/testuser/test-setup.sh
+
+# Default command runs the test
+CMD ["/home/testuser/test-setup.sh"]

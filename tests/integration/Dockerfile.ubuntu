@@ -1,0 +1,26 @@
+# Dockerfile for Testing Setup Script on Ubuntu
+# Tests compatibility with Ubuntu 24.04 LTS
+
+FROM ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TERM=xterm-256color
+
+# Create a non-root user
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sudo \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -s /bin/bash testuser \
+    && echo "testuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+USER testuser
+WORKDIR /home/testuser
+
+COPY --chown=testuser:testuser setup.sh /home/testuser/setup.sh
+COPY --chown=testuser:testuser tests/integration/test-setup.sh /home/testuser/test-setup.sh
+
+RUN chmod +x /home/testuser/setup.sh /home/testuser/test-setup.sh
+
+CMD ["/home/testuser/test-setup.sh"]

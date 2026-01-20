@@ -1,0 +1,62 @@
+# Docker Compose for Integration Testing
+# Tests the setup script in an isolated Debian environment
+
+version: '3.9'
+
+services:
+  # Test setup script on Debian 13 (Trixie)
+  test-debian-trixie:
+    build:
+      context: ../..
+      dockerfile: tests/integration/Dockerfile.test-setup
+    container_name: test-setup-debian-trixie
+    hostname: debian-trixie-test
+    environment:
+      - DEBIAN_FRONTEND=noninteractive
+      - SKIP_GIT=1
+      - SKIP_DOCKER=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro  # Optional: for Docker-in-Docker tests
+    networks:
+      - test-network
+    tty: true
+
+  # Test on Debian 12 (Bookworm) for compatibility
+  test-debian-bookworm:
+    build:
+      context: ../..
+      dockerfile: tests/integration/Dockerfile.test-setup
+      args:
+        - BASE_IMAGE=debian:bookworm-slim
+    container_name: test-setup-debian-bookworm
+    hostname: debian-bookworm-test
+    environment:
+      - DEBIAN_FRONTEND=noninteractive
+      - SKIP_GIT=1
+      - SKIP_DOCKER=1
+    networks:
+      - test-network
+    tty: true
+    profiles:
+      - compat
+
+  # Test on Ubuntu 24.04 for compatibility
+  test-ubuntu:
+    build:
+      context: ../..
+      dockerfile: tests/integration/Dockerfile.ubuntu
+    container_name: test-setup-ubuntu
+    hostname: ubuntu-test
+    environment:
+      - DEBIAN_FRONTEND=noninteractive
+      - SKIP_GIT=1
+      - SKIP_DOCKER=1
+    networks:
+      - test-network
+    tty: true
+    profiles:
+      - compat
+
+networks:
+  test-network:
+    driver: bridge

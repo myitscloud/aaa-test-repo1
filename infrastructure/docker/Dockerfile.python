@@ -1,0 +1,123 @@
+# Python Application Dockerfile
+# Multi-stage build for optimized production image
+
+# ==============================================================================
+# Stage 1: Builder
+# ==============================================================================
+FROM python:3.11-slim as builder
+
+# Set build arguments
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /build
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels -r requirements.txt
+
+# ==============================================================================
+# Stage 2: Production
+# ==============================================================================
+FROM python:3.11-slim as production
+
+# Labels for OCI compliance
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.title="Multi-Agent Template API" \
+      org.opencontainers.image.description="Python API service" \
+      org.opencontainers.image.vendor="Your Organization"
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONFAULTHANDLER=1 \
+    APP_HOME=/app \
+    APP_USER=appuser
+
+# Create non-root user for security
+RUN groupadd --gid 1000 ${APP_USER} && \
+    useradd --uid 1000 --gid ${APP_USER} --shell /bin/bash --create-home ${APP_USER}
+
+WORKDIR ${APP_HOME}
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Copy wheels from builder and install
+COPY --from=builder /build/wheels /wheels
+RUN pip install --no-cache-dir /wheels/* && rm -rf /wheels
+
+# Copy application code
+COPY --chown=${APP_USER}:${APP_USER} src/ ./src/
+COPY --chown=${APP_USER}:${APP_USER} config/ ./config/
+
+# Switch to non-root user
+USER ${APP_USER}
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run the application
+CMD ["python", "-m", "uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# ==============================================================================
+# Stage 3: Development
+# ==============================================================================
+FROM production as development
+
+USER root
+
+# Install development dependencies
+COPY requirements-dev.txt .
+RUN pip install --no-cache-dir -r requirements-dev.txt || true
+
+# Install debugging tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    vim \
+    less \
+    && rm -rf /var/lib/apt/lists/*
+
+USER ${APP_USER}
+
+# Override command for development
+CMD ["python", "-m", "uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# ==============================================================================
+# Stage 4: Testing
+# ==============================================================================
+FROM development as testing
+
+USER root
+
+# Copy test files
+COPY --chown=${APP_USER}:${APP_USER} tests/ ./tests/
+COPY --chown=${APP_USER}:${APP_USER} pytest.ini ./
+COPY --chown=${APP_USER}:${APP_USER} setup.cfg ./
+
+USER ${APP_USER}
+
+# Run tests
+CMD ["pytest", "tests/", "-v", "--cov=src", "--cov-report=term-missing"]

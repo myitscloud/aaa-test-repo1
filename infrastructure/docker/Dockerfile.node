@@ -1,0 +1,144 @@
+# Node.js Application Dockerfile
+# Multi-stage build for optimized production image
+
+# ==============================================================================
+# Stage 1: Dependencies
+# ==============================================================================
+FROM node:20-alpine as deps
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+
+# Install dependencies based on lockfile
+RUN \
+    if [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
+    elif [ -f package-lock.json ]; then npm ci; \
+    elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
+    else npm install; \
+    fi
+
+# ==============================================================================
+# Stage 2: Builder
+# ==============================================================================
+FROM node:20-alpine as builder
+
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+
+WORKDIR /app
+
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source code
+COPY . .
+
+# Build application
+RUN \
+    if [ -f "next.config.js" ] || [ -f "next.config.mjs" ]; then \
+        npm run build; \
+    elif [ -f "vite.config.js" ] || [ -f "vite.config.ts" ]; then \
+        npm run build; \
+    elif [ -f "webpack.config.js" ]; then \
+        npm run build; \
+    else \
+        echo "No build step detected, using source directly"; \
+    fi
+
+# ==============================================================================
+# Stage 3: Production
+# ==============================================================================
+FROM node:20-alpine as production
+
+# Labels for OCI compliance
+LABEL org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.title="Multi-Agent Template Web App" \
+      org.opencontainers.image.description="Node.js web application" \
+      org.opencontainers.image.vendor="Your Organization"
+
+# Set environment
+ENV NODE_ENV=production \
+    APP_USER=nodejs
+
+WORKDIR /app
+
+# Create non-root user
+RUN addgroup --system --gid 1001 ${APP_USER} && \
+    adduser --system --uid 1001 ${APP_USER}
+
+# Copy necessary files from builder
+COPY --from=builder --chown=${APP_USER}:${APP_USER} /app/package.json ./
+COPY --from=builder --chown=${APP_USER}:${APP_USER} /app/node_modules ./node_modules
+
+# Copy built assets (adjust paths based on your framework)
+COPY --from=builder --chown=${APP_USER}:${APP_USER} /app/public ./public
+COPY --from=builder --chown=${APP_USER}:${APP_USER} /app/dist ./dist 2>/dev/null || true
+COPY --from=builder --chown=${APP_USER}:${APP_USER} /app/build ./build 2>/dev/null || true
+COPY --from=builder --chown=${APP_USER}:${APP_USER} /app/.next ./.next 2>/dev/null || true
+
+# Install only production dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Switch to non-root user
+USER ${APP_USER}
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+# Start the application
+CMD ["node", "dist/index.js"]
+
+# ==============================================================================
+# Stage 4: Development
+# ==============================================================================
+FROM node:20-alpine as development
+
+WORKDIR /app
+
+# Copy package files and install all dependencies
+COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+RUN \
+    if [ -f yarn.lock ]; then yarn install; \
+    elif [ -f package-lock.json ]; then npm install; \
+    elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i; \
+    else npm install; \
+    fi
+
+# Copy source code
+COPY . .
+
+# Expose port
+EXPOSE 3000
+
+# Start development server
+CMD ["npm", "run", "dev"]
+
+# ==============================================================================
+# Stage 5: Static Server (for static sites)
+# ==============================================================================
+FROM nginx:alpine as static
+
+# Copy nginx configuration
+COPY infrastructure/docker/nginx.conf /etc/nginx/nginx.conf
+
+# Copy built static files
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY --from=builder /app/public /usr/share/nginx/html 2>/dev/null || true
+
+# Expose port
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]

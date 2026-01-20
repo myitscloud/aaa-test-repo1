@@ -1,0 +1,115 @@
+# Bandit Configuration
+# Python security linter configuration
+# https://bandit.readthedocs.io/
+
+# Test selection
+# List of test IDs to run
+# tests:
+#   - B101  # assert_used
+#   - B102  # exec_used
+
+# List of test IDs to skip
+skips:
+  - B101  # assert_used - Allow assert statements in tests
+  - B311  # random - Standard random is fine for non-crypto uses
+
+# Exclude paths from analysis
+exclude_dirs:
+  - tests
+  - test
+  - .venv
+  - venv
+  - .tox
+  - build
+  - dist
+  - node_modules
+  - .git
+
+# Target paths to scan
+# targets:
+#   - src
+
+# Confidence level to report (LOW, MEDIUM, HIGH)
+# confidence_level: MEDIUM
+
+# Severity level to report (LOW, MEDIUM, HIGH)
+# severity_level: MEDIUM
+
+# Plugin-specific settings
+any_other_function_with_shell_equals_true:
+  no_shell:
+    - subprocess.Popen
+    - subprocess.call
+    - subprocess.check_call
+    - subprocess.check_output
+    - subprocess.run
+  shell:
+    - os.system
+    - os.popen
+    - subprocess.Popen
+    - subprocess.call
+    - subprocess.check_call
+    - subprocess.check_output
+    - subprocess.run
+
+hardcoded_password_string:
+  # Words to look for that might indicate a hardcoded password
+  word_list:
+    - password
+    - passwd
+    - pwd
+    - secret
+    - token
+    - api_key
+    - apikey
+
+hardcoded_tmp_directory:
+  # Allowed temporary directories
+  tmp_dirs:
+    - /tmp
+    - /var/tmp
+    - /dev/shm
+
+# Profile-based configurations
+# profiles:
+#   gate:
+#     include:
+#       - any_other_function_with_shell_equals_true
+#       - assert_used
+#       - blacklist_calls
+#       - blacklist_import_func
+#       - blacklist_imports
+#       - django_extra_used
+#       - django_rawsql_used
+#       - exec_used
+#       - execute_with_run_as_root_equals_true
+#       - flask_debug_true
+#       - hardcoded_bind_all_interfaces
+#       - hardcoded_password_default
+#       - hardcoded_password_funcarg
+#       - hardcoded_password_string
+#       - hardcoded_sql_expressions
+#       - hardcoded_tmp_directory
+#       - hashlib
+#       - jinja2_autoescape_false
+#       - linux_commands_wildcard_injection
+#       - paramiko_calls
+#       - pickle
+#       - request_without_timeout
+#       - set_bad_file_permissions
+#       - snmp_crypto_check
+#       - snmp_insecure_version
+#       - ssh_no_host_key_verification
+#       - ssl_with_bad_defaults
+#       - ssl_with_bad_version
+#       - ssl_with_no_version
+#       - start_process_with_a_shell
+#       - start_process_with_no_shell
+#       - start_process_with_partial_path
+#       - subprocess_popen_with_shell_equals_true
+#       - subprocess_without_shell_equals_true
+#       - try_except_continue
+#       - try_except_pass
+#       - use_of_mako_templates
+#       - weak_cryptographic_key
+#       - yaml_load

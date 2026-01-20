@@ -1,0 +1,275 @@
+# Deployment Workflow
+# Supports staging and production deployments with approval gates
+
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip test suite'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Run tests before deployment
+  test:
+    name: Pre-deployment Tests
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_tests }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run CI tests
+        uses: ./.github/workflows/ci.yml
+        continue-on-error: false
+
+  # Build and push container image
+  build:
+    name: Build Container
+    runs-on: ubuntu-latest
+    needs: [test]
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+      image_digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for Dockerfile
+        id: docker-check
+        run: |
+          if [ -f "Dockerfile" ]; then
+            echo "path=Dockerfile" >> $GITHUB_OUTPUT
+            echo "exists=true" >> $GITHUB_OUTPUT
+          elif [ -f "infrastructure/docker/Dockerfile" ]; then
+            echo "path=infrastructure/docker/Dockerfile" >> $GITHUB_OUTPUT
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Docker Buildx
+        if: steps.docker-check.outputs.exists == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: steps.docker-check.outputs.exists == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: steps.docker-check.outputs.exists == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-
+
+      - name: Build and push
+        if: steps.docker-check.outputs.exists == 'true'
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ steps.docker-check.outputs.path }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ github.ref_name }}
+
+      - name: Generate SBOM
+        if: steps.docker-check.outputs.exists == 'true'
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          artifact-name: sbom.spdx.json
+          output-file: ./sbom.spdx.json
+
+      - name: Upload SBOM
+        if: steps.docker-check.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: ./sbom.spdx.json
+
+  # Deploy to staging
+  staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: |
+      always() &&
+      needs.build.result == 'success' &&
+      (github.ref == 'refs/heads/main' || inputs.environment == 'staging')
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_URL }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: sbom
+          path: ./artifacts
+        continue-on-error: true
+
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging environment..."
+          echo "Image: ${{ needs.build.outputs.image_tag }}"
+          echo "Digest: ${{ needs.build.outputs.image_digest }}"
+
+          # Add your deployment commands here
+          # Examples:
+          # - kubectl set image deployment/app app=${{ needs.build.outputs.image_tag }}
+          # - aws ecs update-service --cluster staging --service app --force-new-deployment
+          # - terraform apply -var="image_tag=${{ needs.build.outputs.image_tag }}"
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests against staging..."
+          # Add smoke test commands
+          # curl -f ${{ vars.STAGING_URL }}/health || exit 1
+
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "Staging deployment completed with status: ${{ job.status }}"
+          # Add notification commands (Slack, Discord, etc.)
+
+  # Deploy to production (requires approval)
+  production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build, staging]
+    if: |
+      always() &&
+      needs.staging.result == 'success' &&
+      (startsWith(github.ref, 'refs/tags/v') || inputs.environment == 'production')
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify staging deployment
+        run: |
+          echo "Verifying staging deployment before production..."
+          # Add verification commands
+
+      - name: Create deployment record
+        run: |
+          echo "Creating deployment record..."
+          echo "Version: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Deployer: ${{ github.actor }}"
+          echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production environment..."
+          echo "Image: ${{ needs.build.outputs.image_tag }}"
+
+          # Add your production deployment commands here
+          # IMPORTANT: Use blue-green or canary deployment strategies
+
+          # Example blue-green:
+          # kubectl apply -f k8s/production/
+          # kubectl rollout status deployment/app -n production
+
+      - name: Run production smoke tests
+        run: |
+          echo "Running smoke tests against production..."
+          # curl -f ${{ vars.PRODUCTION_URL }}/health || exit 1
+
+      - name: Update deployment status
+        if: always()
+        run: |
+          echo "Production deployment completed with status: ${{ job.status }}"
+
+  # Rollback job (manual trigger)
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: ${{ false }}  # Only runs when manually triggered
+    environment:
+      name: ${{ inputs.environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get previous deployment
+        id: previous
+        run: |
+          echo "Finding previous stable deployment..."
+          # Query your deployment history
+          # echo "tag=v1.2.3" >> $GITHUB_OUTPUT
+
+      - name: Rollback deployment
+        run: |
+          echo "Rolling back to previous version..."
+          # kubectl rollout undo deployment/app
+          # Or deploy specific previous version
+
+      - name: Verify rollback
+        run: |
+          echo "Verifying rollback..."
+          # curl -f ${{ vars.STAGING_URL }}/health
+
+      - name: Notify rollback
+        run: |
+          echo "Rollback completed"
+
+  # Cleanup old images
+  cleanup:
+    name: Cleanup Old Images
+    runs-on: ubuntu-latest
+    needs: [production]
+    if: needs.production.result == 'success'
+    steps:
+      - name: Delete old container images
+        uses: actions/delete-package-versions@v5
+        with:
+          package-name: ${{ github.event.repository.name }}
+          package-type: container
+          min-versions-to-keep: 10
+          delete-only-untagged-versions: true
+        continue-on-error: true

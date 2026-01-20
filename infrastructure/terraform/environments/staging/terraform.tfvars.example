@@ -1,0 +1,16 @@
+# Staging Environment Variables
+# Copy this file to terraform.tfvars and fill in the values
+
+project_name    = "multi-agent-template"
+aws_region      = "us-east-1"
+certificate_arn = ""  # Add ACM certificate ARN for HTTPS
+
+# Container image (update after pushing to registry)
+container_image = "ghcr.io/your-org/your-repo:latest"
+
+# Database credentials (use secrets management in production)
+db_username = "app_user"
+db_password = "change-this-password"
+
+# Application secret (generate a secure random string)
+app_secret_key = "change-this-to-a-secure-random-string"

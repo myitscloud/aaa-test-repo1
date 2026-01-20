@@ -1,0 +1,20 @@
+# Production Environment Variables
+# Copy this file to terraform.tfvars and fill in the values
+# IMPORTANT: Never commit terraform.tfvars with real values to version control
+
+project_name    = "multi-agent-template"
+aws_region      = "us-east-1"
+certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/your-cert-id"
+
+# Container image (update for each deployment)
+container_image = "ghcr.io/your-org/your-repo:v1.0.0"
+
+# Database credentials (use AWS Secrets Manager or similar in production)
+db_username = "app_user"
+db_password = "use-a-strong-password-from-secrets-manager"
+
+# Application secret (generate a secure random string)
+app_secret_key = "use-a-32-character-minimum-secure-random-string"
+
+# Optional: SNS topic for alarms
+alarm_sns_topic_arn = "arn:aws:sns:us-east-1:123456789012:production-alerts"

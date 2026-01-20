@@ -1,0 +1,94 @@
+# Gitleaks Configuration
+# Secret detection configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "Gitleaks Configuration"
+
+[extend]
+# Use the default gitleaks config as a base
+useDefault = true
+
+# =============================================================================
+# Custom Rules
+# =============================================================================
+
+[[rules]]
+id = "custom-api-key"
+description = "Custom API Key Pattern"
+regex = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['"]?([a-zA-Z0-9_\-]{20,})['"]?'''
+secretGroup = 2
+keywords = ["api_key", "apikey", "api-key"]
+
+[[rules]]
+id = "custom-password"
+description = "Hardcoded Password"
+regex = '''(?i)(password|passwd|pwd)\s*[:=]\s*['"]([^'"]{8,})['"]'''
+secretGroup = 2
+keywords = ["password", "passwd", "pwd"]
+
+[[rules]]
+id = "jwt-token"
+description = "JWT Token"
+regex = '''eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*'''
+
+[[rules]]
+id = "database-url"
+description = "Database Connection String"
+regex = '''(?i)(postgres|mysql|mongodb|redis)://[^\s'"]+'''
+
+# =============================================================================
+# Allowlist - Files/Paths to Ignore
+# =============================================================================
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+    '''\.gitleaks\.toml$''',
+    '''\.secrets\.baseline$''',
+    '''go\.sum$''',
+    '''package-lock\.json$''',
+    '''yarn\.lock$''',
+    '''pnpm-lock\.yaml$''',
+    '''\.example$''',
+    '''\.template$''',
+    '''tests?/''',
+    '''__tests__/''',
+    '''fixtures?/''',
+    '''mocks?/''',
+    '''\.md$''',
+    '''docs/''',
+]
+
+# Specific regex patterns to ignore
+regexes = [
+    '''EXAMPLE_''',
+    '''example[_-]''',
+    '''placeholder''',
+    '''your[_-]?api[_-]?key''',
+    '''change[_-]?me''',
+    '''xxx+''',
+    '''test[_-]?key''',
+    '''fake[_-]?''',
+    '''dummy[_-]?''',
+]
+
+# =============================================================================
+# Rule-specific Allowlists
+# =============================================================================
+
+# Allow specific commits (for historical secrets that have been rotated)
+# commits = [
+#     "abc123def456",
+# ]
+
+# Allow specific stopwords in secrets
+stopwords = [
+    "example",
+    "test",
+    "fake",
+    "dummy",
+    "placeholder",
+    "changeme",
+    "password123",
+    "localhost",
+]

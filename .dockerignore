@@ -1,0 +1,136 @@
+# Docker Ignore File
+# Excludes files from Docker build context
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+docs/
+LICENSE
+
+# IDE and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+venv/
+.venv/
+ENV/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+.nuxt/
+
+# Test files
+tests/
+test/
+__tests__/
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+coverage/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+Jenkinsfile
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.docker/
+
+# Infrastructure (keep separate)
+infrastructure/terraform/
+infrastructure/scripts/
+
+# Environment files (should never be in image)
+.env
+.env.*
+!.env.example
+*.local
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+.temp/
+
+# AI/ML specific
+*.h5
+*.pkl
+*.model
+*.weights
+datasets/
+
+# Secrets (should never be in image)
+secrets/
+*.pem
+*.key
+*.crt
+credentials.json
+service-account.json
+
+# Misc
+*.bak
+*.backup
+.ai-logs/

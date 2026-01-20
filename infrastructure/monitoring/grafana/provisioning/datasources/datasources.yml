@@ -1,0 +1,36 @@
+# Grafana Datasource Configuration
+# Auto-provision Prometheus as a data source
+
+apiVersion: 1
+
+datasources:
+  # Prometheus
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"
+      httpMethod: POST
+
+  # Loki for logs (if using)
+  # - name: Loki
+  #   type: loki
+  #   access: proxy
+  #   url: http://loki:3100
+  #   editable: false
+
+  # PostgreSQL (direct database queries)
+  # - name: PostgreSQL
+  #   type: postgres
+  #   url: db:5432
+  #   database: app
+  #   user: readonly_user
+  #   secureJsonData:
+  #     password: ${POSTGRES_READONLY_PASSWORD}
+  #   jsonData:
+  #     sslmode: disable
+  #     maxOpenConns: 5
+  #     maxIdleConns: 2

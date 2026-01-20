@@ -1,0 +1,21 @@
+# Trivy Ignore Configuration
+# List of CVEs to ignore in container/dependency scanning
+# Format: CVE-XXXX-XXXXX
+# https://aquasecurity.github.io/trivy/
+
+# =============================================================================
+# Example: Ignore specific CVEs with reason
+# =============================================================================
+
+# CVE-2023-XXXXX  # Reason: False positive, not applicable to our use case
+# CVE-2023-YYYYY  # Reason: Mitigated by network controls
+
+# =============================================================================
+# Known low-risk vulnerabilities
+# =============================================================================
+
+# Add CVEs to ignore here after security review
+# Each should have a comment explaining why it's being ignored
+
+# Example:
+# CVE-2021-3711  # OpenSSL: False positive in container base image
